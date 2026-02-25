@@ -1,194 +1,156 @@
 <template>
-  <div class="container">
+  <div class="app-container">
     <header class="header">
-      <h1>📁 小黄文件处理助手</h1>
-      <p>轻松上传、管理和下载您的文件</p>
+      <h1>🌍 历史人物朋友圈</h1>
+      <p>穿越时空，看看古人的朋友圈</p>
     </header>
 
-    <div class="upload-section">
-      <div 
-        class="upload-area"
-        :class="{ 'drag-over': isDragOver }"
-        @dragover.prevent="isDragOver = true"
-        @dragleave.prevent="isDragOver = false"
-        @drop.prevent="handleDrop"
-        @click="triggerFileInput"
-      >
-        <input
-          ref="fileInput"
-          type="file"
-          @change="handleFileSelect"
-          style="display: none"
+    <div class="input-section">
+      <div class="input-wrapper">
+        <input 
+          v-model="historicalName" 
+          type="text" 
+          placeholder="输入历史人物名字，如：李白、苏轼、孔子..."
+          @keyup.enter="generateMoments"
+          class="name-input"
         />
-        <div class="upload-icon">📤</div>
-        <p class="upload-text">
-          {{ uploading ? '正在上传...' : '点击或拖拽文件到此处上传' }}
-        </p>
-        <p class="upload-hint">支持任意格式的文件</p>
+        <button 
+          @click="generateMoments" 
+          :disabled="loading"
+          class="generate-btn"
+        >
+          {{ loading ? '生成中...' : '生成朋友圈' }}
+        </button>
       </div>
     </div>
 
-    <div class="files-section">
-      <div class="section-header">
-        <h2>📋 文件列表</h2>
-        <span class="file-count">共 {{ files.length }} 个文件</span>
-      </div>
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
 
-      <div v-if="loading" class="loading">
-        加载中...
-      </div>
+    <div v-if="momentsData" class="moments-container">
+      <div class="moments-card">
+        <div class="user-info">
+          <div class="avatar">{{ momentsData.avatar }}</div>
+          <div class="user-details">
+            <h2 class="username">{{ momentsData.name }}</h2>
+            <p class="time">{{ currentTime }}</p>
+          </div>
+        </div>
 
-      <div v-else-if="files.length > 0" class="files-grid">
-        <div v-for="file in files" :key="file.id" class="file-card">
-          <div class="file-icon">
-            {{ getFileIcon(file.name) }}
+        <div class="content">
+          <p>{{ momentsData.content }}</p>
+        </div>
+
+        <div v-if="momentsData.images && momentsData.images.length > 0" class="images-grid">
+          <div 
+            v-for="(img, index) in momentsData.images" 
+            :key="index"
+            class="image-item"
+          >
+            <div class="image-placeholder">
+              <span class="image-emoji">🖼️</span>
+              <p class="image-desc">{{ img }}</p>
+            </div>
           </div>
-          <div class="file-info">
-            <h3 class="file-name" :title="file.name">{{ file.name }}</h3>
-            <p class="file-meta">
-              <span>📦 {{ file.sizeFormatted }}</span>
-              <span>🕐 {{ file.uploadDateFormatted }}</span>
-            </p>
+        </div>
+
+        <div class="interactions">
+          <div class="interaction-btn like-btn" @click="toggleLike">
+            <span>{{ liked ? '❤️' : '🤍' }}</span>
+            <span>点赞</span>
           </div>
-          <div class="file-actions">
-            <button @click="downloadFile(file)" class="action-btn download-btn">
-              📥 下载
-            </button>
-            <button @click="deleteFile(file)" class="action-btn delete-btn" :disabled="deleting">
-              🗑️ 删除
-            </button>
+          <div class="interaction-btn comment-btn">
+            <span>💬</span>
+            <span>评论</span>
+          </div>
+          <div class="interaction-btn share-btn">
+            <span>🔗</span>
+            <span>分享</span>
+          </div>
+        </div>
+
+        <div v-if="momentsData.likes && momentsData.likes.length > 0" class="likes-section">
+          <span class="likes-icon">❤️</span>
+          <span class="likes-text">{{ momentsData.likes.join('、') }}</span>
+          <span v-if="liked" class="you-liked">、你</span>
+        </div>
+
+        <div v-if="momentsData.comments && momentsData.comments.length > 0" class="comments-section">
+          <div v-for="(comment, index) in momentsData.comments" :key="index" class="comment-item">
+            <span class="comment-user">{{ comment.user }}:</span>
+            <span class="comment-text">{{ comment.text }}</span>
           </div>
         </div>
       </div>
+    </div>
 
-      <div v-else class="no-files">
-        <div class="no-files-icon">📭</div>
-        <h3>暂无文件</h3>
-        <p>上传一些文件开始使用吧</p>
+    <div v-if="!momentsData && !loading" class="empty-state">
+      <div class="empty-icon">📜</div>
+      <h3>还没有朋友圈</h3>
+      <p>输入历史人物名字，开始穿越之旅吧！</p>
+      <div class="suggestions">
+        <p class="suggestion-label">试试这些人物：</p>
+        <div class="suggestion-tags">
+          <span v-for="name in suggestedNames" :key="name" @click="selectName(name)" class="tag">
+            {{ name }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import axios from 'axios'
 
-const fileInput = ref(null)
-const files = ref([])
+const historicalName = ref('')
+const momentsData = ref(null)
 const loading = ref(false)
-const uploading = ref(false)
-const deleting = ref(false)
-const isDragOver = ref(false)
+const error = ref('')
+const liked = ref(false)
 
-const getFileIcon = (filename) => {
-  const ext = filename.split('.').pop().toLowerCase()
-  const icons = {
-    pdf: '📄',
-    doc: '📝',
-    docx: '📝',
-    xls: '📊',
-    xlsx: '📊',
-    ppt: '📽️',
-    pptx: '📽️',
-    jpg: '🖼️',
-    jpeg: '🖼️',
-    png: '🖼️',
-    gif: '🖼️',
-    svg: '🖼️',
-    mp3: '🎵',
-    wav: '🎵',
-    mp4: '🎬',
-    avi: '🎬',
-    zip: '📦',
-    rar: '📦',
-    '7z': '📦',
-    txt: '📃',
-    js: '💻',
-    html: '💻',
-    css: '💻',
-    py: '💻',
-    json: '🔧'
+const suggestedNames = ['李白', '苏轼', '孔子', '秦始皇', '武则天', '诸葛亮', '曹操', '杜甫']
+
+const currentTime = new Date().toLocaleString('zh-CN', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})
+
+const generateMoments = async () => {
+  if (!historicalName.value.trim()) {
+    error.value = '请输入历史人物名字'
+    return
   }
-  return icons[ext] || '📁'
-}
 
-const triggerFileInput = () => {
-  if (!uploading) {
-    fileInput.value.click()
-  }
-}
-
-const handleFileSelect = async (e) => {
-  const file = e.target.files[0]
-  if (file) {
-    await uploadFile(file)
-  }
-  e.target.value = ''
-}
-
-const handleDrop = async (e) => {
-  isDragOver.value = false
-  const file = e.dataTransfer.files[0]
-  if (file) {
-    await uploadFile(file)
-  }
-}
-
-const uploadFile = async (file) => {
-  uploading.value = true
-  const formData = new FormData()
-  formData.append('file', file)
-
-  try {
-    await axios.post('/api/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    await fetchFiles()
-  } catch (error) {
-    console.error('上传失败:', error)
-    alert('文件上传失败，请重试')
-  } finally {
-    uploading.value = false
-  }
-}
-
-const fetchFiles = async () => {
+  error.value = ''
   loading.value = true
+  liked.value = false
+
   try {
-    const response = await axios.get('/api/files')
-    files.value = response.data.files
-  } catch (error) {
-    console.error('获取文件列表失败:', error)
+    const response = await axios.post('/api/generate-moments', {
+      name: historicalName.value
+    })
+    
+    momentsData.value = response.data.data
+  } catch (err) {
+    error.value = err.response?.data?.error || '生成失败，请重试'
+    console.error('生成朋友圈失败:', err)
   } finally {
     loading.value = false
   }
 }
 
-const downloadFile = (file) => {
-  window.open(`/api/download/${file.filename}`, '_blank')
+const toggleLike = () => {
+  liked.value = !liked.value
 }
 
-const deleteFile = async (file) => {
-  if (!confirm(`确定要删除文件 "${file.name}" 吗？`)) {
-    return
-  }
-
-  deleting.value = true
-  try {
-    await axios.delete(`/api/files/${file.filename}`)
-    await fetchFiles()
-  } catch (error) {
-    console.error('删除失败:', error)
-    alert('删除失败，请重试')
-  } finally {
-    deleting.value = false
-  }
+const selectName = (name) => {
+  historicalName.value = name
+  generateMoments()
 }
-
-onMounted(() => {
-  fetchFiles()
-})
 </script>
