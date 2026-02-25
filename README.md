@@ -31,20 +31,32 @@ cd backend
 npm install
 ```
 
-3. **安装前端依赖**
+3. **配置环境变量**
+```bash
+cd backend
+# 复制环境变量模板
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入你的DeepSeek API Key：
+```
+DEEPSEEK_API_KEY=your_actual_api_key_here
+```
+
+4. **安装前端依赖**
 ```bash
 cd ../frontend
 npm install
 ```
 
-4. **启动后端服务**
+5. **启动后端服务**
 ```bash
 cd ../backend
 npm start
 ```
 后端服务将在 http://localhost:4000 启动
 
-5. **启动前端服务**
+6. **启动前端服务**
 ```bash
 cd ../frontend
 npm run dev

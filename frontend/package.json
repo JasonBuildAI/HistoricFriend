@@ -1,6 +1,7 @@
 {
-  "name": "juheliulan-frontend",
+  "name": "historic-friend-frontend",
   "version": "1.0.0",
+  "description": "历史人物朋友圈生成器前端",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,5 +15,8 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
     "vite": "^5.0.0"
-  }
+  },
+  "keywords": ["ai", "history", "moments", "vue", "deepseek"],
+  "author": "JasonBuildAI",
+  "license": "Apache-2.0"
 }

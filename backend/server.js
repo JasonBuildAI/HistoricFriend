@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -8,7 +9,7 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-const DEEPSEEK_API_KEY = 'sk-e7b5c2f42dc6472bb78327cacd0bde6a';
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
